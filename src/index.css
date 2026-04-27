@@ -1,0 +1,101 @@
+:root {
+  font-family:
+    "SF Pro Display",
+    "PingFang SC",
+    "Microsoft YaHei",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  color: #14202b;
+  background:
+    linear-gradient(135deg, rgba(245, 250, 255, 0.94), rgba(225, 241, 248, 0.9)),
+    #eef5f8;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --ink: #0c1824;
+  --muted: rgba(12, 24, 36, 0.6);
+  --line: rgba(69, 109, 136, 0.16);
+  --glass: rgba(255, 255, 255, 0.66);
+  --glass-strong: rgba(255, 255, 255, 0.78);
+  --cyan: #1d8fff;
+  --emerald: #15a871;
+  --danger: #d93636;
+  --shadow-soft: 0 22px 72px rgba(36, 83, 119, 0.14);
+  --shadow-float: 0 28px 90px rgba(29, 91, 136, 0.18);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    linear-gradient(180deg, rgba(248, 252, 255, 0.56), rgba(235, 245, 250, 0.86)),
+    url('/images/sci-fi-canvas-bg.png') center top / cover fixed no-repeat,
+    #edf6f9;
+  isolation: isolate;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.72), transparent 28%),
+    linear-gradient(rgba(12, 24, 36, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(12, 24, 36, 0.035) 1px, transparent 1px);
+  background-size: auto, 34px 34px, 34px 34px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.86), rgba(0, 0, 0, 0.34));
+  pointer-events: none;
+  z-index: -2;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(29, 143, 255, 0.13), transparent 26%),
+    radial-gradient(circle at 88% 8%, rgba(21, 168, 113, 0.1), transparent 24%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.38), transparent 18%, transparent 82%, rgba(255, 255, 255, 0.34));
+  pointer-events: none;
+  z-index: -1;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgba(34, 119, 255, 0.35);
+  outline-offset: 2px;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+  width: min(1680px, calc(100% - 24px));
+  margin: 0 auto;
+  padding: 16px 0 28px;
+}
+
+@media (max-width: 680px) {
+  #root {
+    width: min(100% - 16px, 1680px);
+    padding-top: 10px;
+  }
+}
