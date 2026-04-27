@@ -25,6 +25,17 @@ npm start
 3. Render 会读取 `render.yaml`，自动执行 `npm ci && npm run build`，并用 `npm start` 启动服务。
 4. 部署完成后，访问 Render 给出的公网域名即可在其他电脑和手机上使用。
 
+## 部署到 Vercel
+
+Render 如果要求绑定银行卡，可以改用 Vercel 的 Hobby 方案。项目已经包含 `vercel.json` 和 `/api` serverless 行情代理。
+
+1. 打开 Vercel 导入页。
+2. 选择 GitHub 仓库 `wz13678330639-oss/a-share-monitor`。
+3. Framework Preset 选择 Vite。
+4. Build Command 使用 `npm run build`。
+5. Output Directory 使用 `dist`。
+6. 部署完成后，用 Vercel 给出的公网域名访问。
+
 ## Docker 部署
 
 ```bash
