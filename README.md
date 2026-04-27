@@ -36,6 +36,16 @@ Render 如果要求绑定银行卡，可以改用 Vercel 的 Hobby 方案。项�
 5. Output Directory 使用 `dist`。
 6. 部署完成后，用 Vercel 给出的公网域名访问。
 
+## 中国大陆访问方案：EdgeOne Pages
+
+如果 `.vercel.app` 在中国大陆网络打不开，可以使用腾讯云 EdgeOne Pages。项目已经包含 `edge-functions`，上线后会提供同样的 `/api/eastmoney/clist`、`/api/eastmoney/kline` 和 `/api/health`。
+
+1. 打开 EdgeOne Pages 控制台。
+2. 从 GitHub 导入 `wz13678330639-oss/a-share-monitor`。
+3. Build Command 使用 `npm run build`。
+4. Output Directory 使用 `dist`。
+5. 部署完成后，使用 EdgeOne Pages 给出的访问域名。
+
 ## Docker 部署
 
 ```bash
