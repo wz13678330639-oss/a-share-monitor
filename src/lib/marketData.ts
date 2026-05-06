@@ -209,44 +209,6 @@ function buildHeadline(name: string, sector: string, changePct: number) {
   return `${name} 维持震荡，等待消息面、资金面或技术位进一步确认。`
 }
 
-function buildQuoteCandles(row: EastMoneyQuoteRow): Candle[] {
-  const current = toNumber(row.f2)
-  const previous = toNumber(row.f18, current)
-  const open = toNumber(row.f17, previous)
-  const high = toNumber(row.f15, Math.max(open, current))
-  const low = toNumber(row.f16, Math.min(open, current))
-  const volume = toNumber(row.f5)
-  const symbolSeed = String(row.f12 ?? '')
-    .split('')
-    .reduce((sum, item) => sum + item.charCodeAt(0), 0)
-  const candles: Candle[] = []
-
-  for (let index = 19; index >= 1; index -= 1) {
-    const wave = Math.sin((symbolSeed + index) * 0.37) * 0.008
-    const drift = (current - previous) / Math.max(previous, 1) / 20
-    const close = round(previous * (1 + drift * (20 - index) + wave), 2)
-    candles.push({
-      label: `T-${index}`,
-      open: round(close * (1 - wave * 0.32), 2),
-      close,
-      low: round(close * 0.985, 2),
-      high: round(close * 1.015, 2),
-      volume: round(volume * (0.56 + (20 - index) * 0.018), 0),
-    })
-  }
-
-  candles.push({
-    label: '实时',
-    open: round(open, 2),
-    close: round(current, 2),
-    low: round(low, 2),
-    high: round(high, 2),
-    volume: round(volume, 0),
-  })
-
-  return candles
-}
-
 function normalizeQuote(row: EastMoneyQuoteRow): MarketStock | null {
   const symbol = toText(row.f12)
   const name = toText(row.f14)
@@ -298,7 +260,7 @@ function normalizeQuote(row: EastMoneyQuoteRow): MarketStock | null {
     mainNetInflow,
     dataSource: LIVE_PROVIDER,
     updatedAt: new Date().toISOString(),
-    candles: buildQuoteCandles(row),
+    candles: [],
   }
 }
 

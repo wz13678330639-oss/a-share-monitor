@@ -1,5 +1,9 @@
 export type RiskProfile = 'low' | 'medium' | 'high'
 
+export type FocusPreset = 'defensive' | 'balanced' | 'aggressive'
+
+export type UiDensity = 'comfortable' | 'compact'
+
 export type ChartPeriod = 'minute' | 'day' | 'week' | 'month'
 
 export type TradeAction =
@@ -16,7 +20,7 @@ export type TradeAction =
   | '加速试单'
   | '强势跟随'
 
-export type DataSourceMode = 'live' | 'fallback'
+export type DataSourceMode = 'live' | 'unavailable'
 
 export interface Candle {
   label: string
@@ -127,6 +131,7 @@ export interface TradePlan {
 export interface ScoredStock {
   symbol: string
   secid: string
+  profile: RiskProfile
   name: string
   market: string
   sector: string
@@ -141,14 +146,60 @@ export interface ScoredStock {
   tags: string[]
   overallScore: number
   riskScore: number
-  winRate: number
+  signalScore: number
+  calibratedWinRate: number | null
+  calibrationSamples: number
+  winRate: number | null
   action: TradeAction
   confidenceLabel: string
   breakdown: SignalBreakdown
-  tradePlan: TradePlan
+  tradePlan: TradePlan | null
   factors: StockFactors
   candles: Candle[]
   dataSource: string
   updatedAt: string
   narrative: string[]
+}
+
+export interface LearningRecord {
+  id: string
+  symbol: string
+  name: string
+  profile: RiskProfile
+  signalScore: number
+  entryPrice: number
+  startedAt: string
+  dueAt: string
+  exitPrice: number | null
+  resolvedAt: string | null
+  returnPct: number | null
+  success: boolean | null
+}
+
+export interface CalibrationBucket {
+  profile: RiskProfile
+  scoreMin: number
+  scoreMax: number
+  samples: number
+  winRate: number
+  avgReturnPct: number
+}
+
+export interface LearningCalibration {
+  generatedAt: string
+  provider: string
+  horizonDays: number
+  successReturnPct: number
+  totalSamples: number
+  buckets: CalibrationBucket[]
+}
+
+export interface UserProfile {
+  id: string
+  displayName: string
+  riskProfile: RiskProfile
+  focusPreset: FocusPreset
+  density: UiDensity
+  createdAt: string
+  updatedAt: string
 }

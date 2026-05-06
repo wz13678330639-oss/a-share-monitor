@@ -1,7 +1,12 @@
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts'
 import type { ECharts, EChartsOption } from 'echarts'
-import type { ChartPeriod, RiskProfile, ScoredStock } from '../types/market'
+import type {
+  ChartPeriod,
+  RiskProfile,
+  ScoredStock,
+  TradeMarker,
+} from '../types/market'
 
 const profileTint = {
   low: '#6bd4ff',
@@ -32,7 +37,7 @@ function formatSignalPrice(value: number) {
   return value >= 100 ? value.toFixed(2) : value.toFixed(3)
 }
 
-function signalTone(kind: ScoredStock['tradePlan']['markers'][number]['kind']) {
+function signalTone(kind: TradeMarker['kind']) {
   if (kind === 'buy') return 'buy'
   if (kind === 'sell') return 'sell'
   return 'risk'
@@ -49,7 +54,7 @@ export function CandlestickChart({
 }) {
   const chartRef = useRef<HTMLDivElement | null>(null)
   const instanceRef = useRef<ECharts | null>(null)
-  const signalItems = stock.tradePlan.markers.map((marker) => ({
+  const signalItems = (stock.tradePlan?.markers ?? []).map((marker) => ({
     ...marker,
     time: stock.candles[marker.index]?.label ?? '--',
   }))
@@ -70,7 +75,7 @@ export function CandlestickChart({
     return () => {
       resizeObserver.disconnect()
     }
-  }, [])
+  }, [stock.candles.length])
 
   useEffect(() => {
     const chart = instanceRef.current
@@ -79,6 +84,7 @@ export function CandlestickChart({
       return
     }
 
+    const tradePlan = stock.tradePlan
     const labels = stock.candles.map((item) => item.label)
     const closes = stock.candles.map((item) => item.close)
     const candlestick = stock.candles.map((item) => [
@@ -209,89 +215,95 @@ export function CandlestickChart({
             borderColor: '#ff8ea0',
             borderColor0: '#44e1b4',
           },
-          markArea: {
-            silent: true,
-            itemStyle: {
-              color: 'rgba(101, 213, 255, 0.08)',
-            },
-            data: [
-              [
-                {
-                  name: '建仓带',
-                  yAxis: Math.min(...stock.tradePlan.entries),
+          markArea: tradePlan
+            ? {
+                silent: true,
+                itemStyle: {
+                  color: 'rgba(101, 213, 255, 0.08)',
                 },
-                {
-                  yAxis: Math.max(...stock.tradePlan.entries),
+                data: [
+                  [
+                    {
+                      name: '建仓带',
+                      yAxis: Math.min(...tradePlan.entries),
+                    },
+                    {
+                      yAxis: Math.max(...tradePlan.entries),
+                    },
+                  ],
+                ],
+              }
+            : undefined,
+          markLine: tradePlan
+            ? {
+                symbol: 'none',
+                label: {
+                  position: 'end',
+                  color: '#324256',
+                  backgroundColor: 'rgba(255, 255, 255, 0.78)',
+                  borderRadius: 6,
+                  padding: [3, 6],
+                  formatter: '{b}',
+                  fontSize: 11,
                 },
-              ],
-            ],
-          },
-          markLine: {
-            symbol: 'none',
-            label: {
-              position: 'end',
-              color: '#324256',
-              backgroundColor: 'rgba(255, 255, 255, 0.78)',
-              borderRadius: 6,
-              padding: [3, 6],
-              formatter: '{b}',
-              fontSize: 11,
-            },
-            lineStyle: {
-              type: 'dashed',
-              width: 1.1,
-            },
-            data: [
-              {
-                name: '风控线',
-                yAxis: stock.tradePlan.stopLoss,
                 lineStyle: {
-                  color: '#ff8b7b',
+                  type: 'dashed',
+                  width: 1.1,
                 },
-              },
-              {
-                name: '目标一',
-                yAxis: stock.tradePlan.targets[0],
-                lineStyle: {
-                  color: profileTint[profile],
+                data: [
+                  {
+                    name: '风控线',
+                    yAxis: tradePlan.stopLoss,
+                    lineStyle: {
+                      color: '#ff8b7b',
+                    },
+                  },
+                  {
+                    name: '目标一',
+                    yAxis: tradePlan.targets[0],
+                    lineStyle: {
+                      color: profileTint[profile],
+                    },
+                  },
+                ],
+              }
+            : undefined,
+          markPoint: tradePlan
+            ? {
+                symbol: 'circle',
+                symbolSize: 10,
+                itemStyle: {
+                  borderColor: 'rgba(255, 255, 255, 0.94)',
+                  borderWidth: 1.5,
                 },
-              },
-            ],
-          },
-          markPoint: {
-            symbol: 'circle',
-            symbolSize: 10,
-            itemStyle: {
-              borderColor: 'rgba(255, 255, 255, 0.94)',
-              borderWidth: 1.5,
-            },
-            label: {
-              show: false,
-            },
-            emphasis: {
-              label: {
-                show: true,
-                color: '#f6fbff',
-                backgroundColor: 'rgba(20, 32, 43, 0.88)',
-                borderRadius: 7,
-                padding: [4, 7],
-                formatter: ({ name }) => String(name ?? ''),
-                fontSize: 11,
-              },
-            },
-            data: stock.tradePlan.markers.map((marker) => ({
-              name: marker.label,
-              coord: [labels[marker.index], marker.value],
-              itemStyle: {
-                color:
-                  marker.kind === 'buy'
-                    ? 'rgba(101, 213, 255, 0.92)'
-                    : marker.kind === 'sell'
-                      ? 'rgba(99, 245, 183, 0.92)'
-                      : 'rgba(255, 139, 123, 0.92)',
-              },
-            })),
-          },
+                label: {
+                  show: false,
+                },
+                emphasis: {
+                  label: {
+                    show: true,
+                    color: '#f6fbff',
+                    backgroundColor: 'rgba(20, 32, 43, 0.88)',
+                    borderRadius: 7,
+                    padding: [4, 7],
+                    formatter: ({ name }) => String(name ?? ''),
+                    fontSize: 11,
+                  },
+                },
+                data: tradePlan.markers.map((marker) => ({
+                  name: marker.label,
+                  coord: [labels[marker.index], marker.value],
+                  itemStyle: {
+                    color:
+                      marker.kind === 'buy'
+                        ? 'rgba(101, 213, 255, 0.92)'
+                        : marker.kind === 'sell'
+                          ? 'rgba(99, 245, 183, 0.92)'
+                          : 'rgba(255, 139, 123, 0.92)',
+                  },
+                })),
+              }
+            : undefined,
         },
         {
           name: 'MA5',
@@ -344,19 +356,33 @@ export function CandlestickChart({
 
   return (
     <div className="candlestick-module">
-      <div className="candlestick-chart" ref={chartRef} />
-      <div className="signal-strip" aria-label="K线操作提示">
-        {signalItems.map((marker) => (
-          <div
-            className={`signal-pill signal-pill--${signalTone(marker.kind)}`}
-            key={`${marker.label}-${marker.index}`}
-          >
-            <span>{marker.label}</span>
-            <strong>{formatSignalPrice(marker.value)}</strong>
-            <small>{marker.time}</small>
+      {stock.candles.length >= 5 ? (
+        <>
+          <div className="candlestick-chart" ref={chartRef} />
+          <div className="signal-strip" aria-label="K线操作提示">
+            {signalItems.length ? (
+              signalItems.map((marker) => (
+                <div
+                  className={`signal-pill signal-pill--${signalTone(marker.kind)}`}
+                  key={`${marker.label}-${marker.index}`}
+                >
+                  <span>{marker.label}</span>
+                  <strong>{formatSignalPrice(marker.value)}</strong>
+                  <small>{marker.time}</small>
+                </div>
+              ))
+            ) : (
+              <div className="chart-data-state">
+                真实K线已加载，等待足够样本生成操作区间。
+              </div>
+            )}
           </div>
-        ))}
-      </div>
+        </>
+      ) : (
+        <div className="chart-data-state">
+          正在等待真实K线数据，暂不生成买点、止损和目标价。
+        </div>
+      )}
     </div>
   )
 }

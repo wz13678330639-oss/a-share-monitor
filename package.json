@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "start": "node server/index.js",
     "serve": "npm run build && node server/index.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "train": "node scripts/train-calibration.mjs"
   },
   "engines": {
     "node": ">=20"

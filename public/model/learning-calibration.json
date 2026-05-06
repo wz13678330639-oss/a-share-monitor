@@ -1,0 +1,177 @@
+{
+  "generatedAt": "2026-05-06T03:30:42.298Z",
+  "provider": "东方财富公开历史日K",
+  "horizonDays": 5,
+  "successReturnPct": 2,
+  "totalSamples": 403242,
+  "buckets": [
+    {
+      "profile": "low",
+      "scoreMin": 35,
+      "scoreMax": 44,
+      "samples": 4953,
+      "winRate": 48,
+      "avgReturnPct": 2.83
+    },
+    {
+      "profile": "low",
+      "scoreMin": 45,
+      "scoreMax": 52,
+      "samples": 6749,
+      "winRate": 46,
+      "avgReturnPct": 2.01
+    },
+    {
+      "profile": "low",
+      "scoreMin": 53,
+      "scoreMax": 60,
+      "samples": 10246,
+      "winRate": 45,
+      "avgReturnPct": 1.53
+    },
+    {
+      "profile": "low",
+      "scoreMin": 61,
+      "scoreMax": 68,
+      "samples": 16556,
+      "winRate": 42,
+      "avgReturnPct": 1.07
+    },
+    {
+      "profile": "low",
+      "scoreMin": 69,
+      "scoreMax": 76,
+      "samples": 43091,
+      "winRate": 39,
+      "avgReturnPct": 0.61
+    },
+    {
+      "profile": "low",
+      "scoreMin": 77,
+      "scoreMax": 84,
+      "samples": 50547,
+      "winRate": 36,
+      "avgReturnPct": 3.7
+    },
+    {
+      "profile": "low",
+      "scoreMin": 85,
+      "scoreMax": 92,
+      "samples": 2268,
+      "winRate": 44,
+      "avgReturnPct": -0.7
+    },
+    {
+      "profile": "medium",
+      "scoreMin": 35,
+      "scoreMax": 44,
+      "samples": 5200,
+      "winRate": 47,
+      "avgReturnPct": 2.21
+    },
+    {
+      "profile": "medium",
+      "scoreMin": 45,
+      "scoreMax": 52,
+      "samples": 5006,
+      "winRate": 46,
+      "avgReturnPct": 1.51
+    },
+    {
+      "profile": "medium",
+      "scoreMin": 53,
+      "scoreMax": 60,
+      "samples": 15060,
+      "winRate": 44,
+      "avgReturnPct": 0.97
+    },
+    {
+      "profile": "medium",
+      "scoreMin": 61,
+      "scoreMax": 68,
+      "samples": 40768,
+      "winRate": 38,
+      "avgReturnPct": 1.25
+    },
+    {
+      "profile": "medium",
+      "scoreMin": 69,
+      "scoreMax": 76,
+      "samples": 47036,
+      "winRate": 37,
+      "avgReturnPct": 3.68
+    },
+    {
+      "profile": "medium",
+      "scoreMin": 77,
+      "scoreMax": 84,
+      "samples": 20665,
+      "winRate": 40,
+      "avgReturnPct": 0.76
+    },
+    {
+      "profile": "medium",
+      "scoreMin": 85,
+      "scoreMax": 92,
+      "samples": 675,
+      "winRate": 42,
+      "avgReturnPct": -1.14
+    },
+    {
+      "profile": "high",
+      "scoreMin": 35,
+      "scoreMax": 44,
+      "samples": 3170,
+      "winRate": 48,
+      "avgReturnPct": 2.18
+    },
+    {
+      "profile": "high",
+      "scoreMin": 45,
+      "scoreMax": 52,
+      "samples": 4613,
+      "winRate": 46,
+      "avgReturnPct": 1.39
+    },
+    {
+      "profile": "high",
+      "scoreMin": 53,
+      "scoreMax": 60,
+      "samples": 21101,
+      "winRate": 39,
+      "avgReturnPct": 1.19
+    },
+    {
+      "profile": "high",
+      "scoreMin": 61,
+      "scoreMax": 68,
+      "samples": 38870,
+      "winRate": 37,
+      "avgReturnPct": 2.77
+    },
+    {
+      "profile": "high",
+      "scoreMin": 69,
+      "scoreMax": 76,
+      "samples": 36525,
+      "winRate": 40,
+      "avgReturnPct": 2.75
+    },
+    {
+      "profile": "high",
+      "scoreMin": 77,
+      "scoreMax": 84,
+      "samples": 28717,
+      "winRate": 41,
+      "avgReturnPct": 1.01
+    },
+    {
+      "profile": "high",
+      "scoreMin": 85,
+      "scoreMax": 92,
+      "samples": 1414,
+      "winRate": 39,
+      "avgReturnPct": -1.82
+    }
+  ]
+}

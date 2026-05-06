@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import { defaultWatchSymbols, stockUniverse } from '../data/stockUniverse'
 import {
   fetchAllAStocks,
   fetchStockKlines,
@@ -14,21 +13,22 @@ import {
 } from '../lib/marketData'
 import type { ChartPeriod, DataSourceStatus, MarketStock } from '../types/market'
 
-const FALLBACK_STATUS: DataSourceStatus = {
-  mode: 'fallback',
-  provider: '备用演示行情',
-  message: '正在使用备用演示数据，等待实时行情源恢复。',
+const DEFAULT_WATCH_SYMBOLS = ['300750', '688041', '600519', '601318']
+
+const UNAVAILABLE_STATUS: DataSourceStatus = {
+  mode: 'unavailable',
+  provider: '真实行情未连接',
+  message: '当前没有可用的真实行情数据，系统已暂停评分和操作建议。',
   updatedAt: new Date().toISOString(),
-  total: stockUniverse.length,
+  total: 0,
 }
 
 const LIVE_REFRESH_MS = 15000
 
 export function useAStockMarket(activeSymbol: string, chartPeriod: ChartPeriod) {
-  const [stocks, setStocks] = useState<MarketStock[]>(stockUniverse)
-  const [status, setStatus] = useState<DataSourceStatus>(FALLBACK_STATUS)
+  const [stocks, setStocks] = useState<MarketStock[]>([])
+  const [status, setStatus] = useState<DataSourceStatus>(UNAVAILABLE_STATUS)
   const [isLoading, setIsLoading] = useState(true)
-  const stocksCountRef = useRef(stockUniverse.length)
   const isRefreshingRef = useRef(false)
 
   const refreshQuotes = useCallback(async () => {
@@ -44,7 +44,9 @@ export function useAStockMarket(activeSymbol: string, chartPeriod: ChartPeriod) 
       startTransition(() => {
         setStocks((current) => {
           const candlesBySymbol = new Map(
-            current.map((stock) => [stock.symbol, stock.candles]),
+            current
+              .filter((stock) => stock.candles.length >= 5)
+              .map((stock) => [stock.symbol, stock.candles]),
           )
 
           return page.stocks.map((stock) => ({
@@ -67,12 +69,12 @@ export function useAStockMarket(activeSymbol: string, chartPeriod: ChartPeriod) 
 
       startTransition(() => {
         setStatus({
-          ...FALLBACK_STATUS,
-          message: `${message} 当前切换到备用演示数据。`,
+          ...UNAVAILABLE_STATUS,
+          message: `${message} 已暂停评分和操作建议，等待真实行情源恢复。`,
           updatedAt: new Date().toISOString(),
-          total: stocksCountRef.current || stockUniverse.length,
+          total: 0,
         })
-        setStocks((current) => (current.length ? current : stockUniverse))
+        setStocks([])
       })
     } finally {
       setIsLoading(false)
@@ -109,22 +111,18 @@ export function useAStockMarket(activeSymbol: string, chartPeriod: ChartPeriod) 
   }, [refreshQuotes])
 
   useEffect(() => {
-    stocksCountRef.current = stocks.length
-  }, [stocks.length])
-
-  useEffect(() => {
     if (!activeSymbol) {
       return
     }
 
     void refreshKline(activeSymbol, chartPeriod)
-  }, [activeSymbol, chartPeriod])
+  }, [activeSymbol, chartPeriod, status.mode, stocks.length])
 
   return {
     stocks,
     status,
     isLoading,
-    defaultWatchSymbols,
+    defaultWatchSymbols: DEFAULT_WATCH_SYMBOLS,
     refreshQuotes,
   }
 }

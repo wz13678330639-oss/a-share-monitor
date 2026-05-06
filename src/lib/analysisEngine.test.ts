@@ -55,6 +55,12 @@ describe('analysisEngine', () => {
     const lowPlan = buildTradePlan(stable, 'low')
     const highPlan = buildTradePlan(breakout, 'high')
 
+    expect(lowPlan).not.toBeNull()
+    expect(highPlan).not.toBeNull()
+    if (!lowPlan || !highPlan) {
+      throw new Error('Expected trade plans for seeded K-line fixtures.')
+    }
+
     expect(lowPlan.entries[0]).toBeLessThanOrEqual(stable.price)
     expect(lowPlan.stopLoss).toBeLessThan(lowPlan.entries[0])
     expect(highPlan.entries[0]).toBeGreaterThan(breakout.price)
@@ -68,9 +74,9 @@ describe('analysisEngine', () => {
       .map((stock) => scoreStock(stock, 'medium'))
     const review = buildAdaptiveReview(scored, 'medium')
 
-    expect(review.avgWinRate).toBeGreaterThan(0)
-    expect(review.summary).toContain('平均预测胜率')
-    expect(review.nextOptimization).toContain('系统下一轮')
+    expect(review.avgWinRate).toBeNull()
+    expect(review.summary).toContain('信号均分')
+    expect(review.nextOptimization).toContain('校准样本不足')
     expect(review.focus).toHaveLength(3)
   })
 })
