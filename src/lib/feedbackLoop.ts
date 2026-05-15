@@ -54,6 +54,26 @@ export interface FeedbackReport extends FeedbackMetrics {
   nextAction: string
 }
 
+export interface FeatureWeights {
+  message: number
+  technical: number
+  stability: number
+  profileFit: number
+  riskControl: number
+}
+
+export interface OnlineModel {
+  profile: RiskProfile
+  version: string
+  mode: 'warmup' | 'active'
+  sampleCount: number
+  trainingRounds: number
+  featureWeights: FeatureWeights
+  winRateAdjustment: number
+  lastTrainedAt: string
+  summary: string
+}
+
 const horizons = [1, 3, 5, 20]
 
 export const defaultStrategyWeights: Record<RiskProfile, StrategyWeights> = {
@@ -283,4 +303,131 @@ export function mergeReviewedRecords(
   const reviewedById = new Map(reviewed.map((record) => [record.id, record]))
 
   return existing.map((record) => reviewedById.get(record.id) ?? record)
+}
+
+function normalizeFeatureWeights(weights: FeatureWeights): FeatureWeights {
+  const positive = {
+    message: Math.max(0, weights.message),
+    technical: Math.max(0, weights.technical),
+    stability: Math.max(0, weights.stability),
+    profileFit: Math.max(0, weights.profileFit),
+    riskControl: Math.max(0, weights.riskControl),
+  }
+  const total =
+    positive.message +
+    positive.technical +
+    positive.stability +
+    positive.profileFit +
+    positive.riskControl
+
+  if (!total) {
+    return {
+      message: 0.2,
+      technical: 0.28,
+      stability: 0.2,
+      profileFit: 0.18,
+      riskControl: 0.14,
+    }
+  }
+
+  return {
+    message: round(positive.message / total, 3),
+    technical: round(positive.technical / total, 3),
+    stability: round(positive.stability / total, 3),
+    profileFit: round(positive.profileFit / total, 3),
+    riskControl: round(positive.riskControl / total, 3),
+  }
+}
+
+function weightsToFeatures(weights: StrategyWeights): FeatureWeights {
+  return normalizeFeatureWeights({
+    message: weights.message,
+    technical: weights.technical,
+    stability: weights.stability,
+    profileFit: weights.profileFit,
+    riskControl: weights.riskPenalty,
+  })
+}
+
+export function trainOnlineModel({
+  previousModel,
+  reviewedRecords,
+  baseWeights,
+  profile,
+}: {
+  previousModel: OnlineModel | null
+  reviewedRecords: PredictionRecord[]
+  baseWeights: StrategyWeights
+  profile: RiskProfile
+}): OnlineModel {
+  const sampleCount = reviewedRecords.length
+  const trainingRounds = (previousModel?.trainingRounds ?? 0) + 1
+  const previousWeights = previousModel?.featureWeights ?? weightsToFeatures(baseWeights)
+
+  if (!sampleCount) {
+    return {
+      profile,
+      version: `${profile}-model-r${trainingRounds}`,
+      mode: 'warmup',
+      sampleCount: 0,
+      trainingRounds,
+      featureWeights: previousWeights,
+      winRateAdjustment: 0,
+      lastTrainedAt: new Date().toISOString(),
+      summary: '暂无已复盘样本，模型训练等待真实反馈。',
+    }
+  }
+
+  const hitRate =
+    reviewedRecords.filter((record) => record.hit).length / sampleCount
+  const averageReturn = average(
+    reviewedRecords.map((record) => record.realizedReturnPct ?? 0),
+  )
+  const averageDrawdown = average(
+    reviewedRecords.map((record) => record.maxDrawdownPct ?? 0),
+  )
+  const averageRisk = average(reviewedRecords.map((record) => record.riskScore))
+  const averageWinRate = average(reviewedRecords.map((record) => record.winRate))
+  const learningRate = sampleCount < 20 ? 0.08 : 0.18
+  const qualitySignal = clamp(hitRate * 100 + averageReturn * 4 - averageDrawdown * 3, 0, 100)
+  const technicalDelta = qualitySignal >= 58 ? learningRate : -learningRate * 0.6
+  const riskDelta = averageDrawdown >= 4 || averageRisk >= 62 ? learningRate : -learningRate * 0.35
+  const stabilityDelta = averageDrawdown >= 4 ? learningRate * 0.8 : learningRate * 0.25
+  const messageDelta = averageReturn > 0 ? learningRate * 0.45 : -learningRate * 0.3
+  const profileDelta =
+    Math.abs(averageWinRate - qualitySignal) <= 18
+      ? learningRate * 0.35
+      : -learningRate * 0.25
+
+  const featureWeights = normalizeFeatureWeights({
+    message: previousWeights.message + messageDelta,
+    technical: previousWeights.technical + technicalDelta,
+    stability: previousWeights.stability + stabilityDelta,
+    profileFit: previousWeights.profileFit + profileDelta,
+    riskControl: previousWeights.riskControl + riskDelta,
+  })
+  const rawAdjustment = (hitRate - 0.5) * 10 + averageReturn * 0.65 - averageDrawdown * 0.35
+  const winRateAdjustment = round(
+    clamp(rawAdjustment, sampleCount < 20 ? -4 : -8, sampleCount < 20 ? 4 : 8),
+    1,
+  )
+  const mode = sampleCount < 20 ? 'warmup' : 'active'
+  const direction =
+    winRateAdjustment > 0
+      ? '提高同类信号胜率修正'
+      : winRateAdjustment < 0
+        ? '降低同类信号胜率修正'
+        : '保持胜率修正不变'
+
+  return {
+    profile,
+    version: `${profile}-model-r${trainingRounds}`,
+    mode,
+    sampleCount,
+    trainingRounds,
+    featureWeights,
+    winRateAdjustment,
+    lastTrainedAt: new Date().toISOString(),
+    summary: `训练 ${sampleCount} 条复盘样本，命中率 ${round(hitRate * 100, 1)}%，平均收益 ${round(averageReturn)}%，${direction}。`,
+  }
 }
