@@ -10,7 +10,6 @@ import {
   Filter,
   Gauge,
   LineChart,
-  Menu,
   RefreshCcw,
   Search,
   ShieldCheck,
@@ -30,10 +29,9 @@ import {
 } from 'react'
 import './App.css'
 import { CandlestickChart } from './components/CandlestickChart'
-import { ProfileDrawer } from './components/ProfileDrawer'
-import { ProfileGate } from './components/ProfileGate'
 import { PhysicalPanel } from './components/PhysicalPanel'
 import { useAStockMarket } from './hooks/useAStockMarket'
+import { useFeedbackLoop } from './hooks/useFeedbackLoop'
 import {
   buildAdaptiveReview,
   buildDailyPicks,
@@ -41,32 +39,8 @@ import {
   buildWatchlistInsights,
   scoreStock,
 } from './lib/analysisEngine'
-import {
-  loadLearningRecords,
-  loadTrainedCalibration,
-  refreshLearningRecords,
-  saveLearningRecords,
-} from './lib/learningEngine'
-import { buildPresetWatchlist } from './lib/personalization'
-import {
-  buildUserProfile,
-  clearUserProfile,
-  defaultProfileDraft,
-  loadProfileWatchlist,
-  loadUserProfile,
-  makeInitialUserDraft,
-  saveProfileWatchlist,
-  saveUserProfile,
-  type UserProfileDraft,
-} from './lib/profileStore'
 import { filterByWatchOnly } from './lib/marketData'
-import type {
-  ChartPeriod,
-  LearningCalibration,
-  RiskProfile,
-  ScoredStock,
-  UserProfile,
-} from './types/market'
+import type { ChartPeriod, RiskProfile, ScoredStock } from './types/market'
 
 const profileConfig = {
   low: {
@@ -128,17 +102,6 @@ function formatTime(value: string) {
   return date.toLocaleTimeString('zh-CN', { hour12: false })
 }
 
-function formatProbability(value: number | null) {
-  return value === null ? '待校准' : `${value}%`
-}
-
-function getProfileBadge(name: string) {
-  return name
-    .trim()
-    .slice(0, 2)
-    .toUpperCase() || '我'
-}
-
 function MarketMetric({
   icon: Icon,
   label,
@@ -191,8 +154,8 @@ function StockRow({
         </small>
       </span>
       <span className="stock-row__score">
-        <strong>{stock.signalScore}</strong>
-        <small>信号分</small>
+        <strong>{stock.winRate}%</strong>
+        <small>{stock.action}</small>
       </span>
       <span
         className="icon-button stock-row__watch"
@@ -236,29 +199,24 @@ function ScoreBar({
   )
 }
 
+function WeightPill({ label, value }: { label: string; value: number }) {
+  return (
+    <span className="weight-pill">
+      {label}
+      <strong>{value}</strong>
+    </span>
+  )
+}
+
 function App() {
-  const [profile, setProfile] = useState<UserProfile | null>(() =>
-    loadUserProfile(),
-  )
-  const [profileDraft, setProfileDraft] = useState<UserProfileDraft>(() =>
-    makeInitialUserDraft(loadUserProfile()),
-  )
-  const [riskProfile, setRiskProfile] = useState<RiskProfile>(
-    () => loadUserProfile()?.riskProfile ?? 'medium',
-  )
+  const [riskProfile, setRiskProfile] = useState<RiskProfile>('medium')
   const [activeSymbol, setActiveSymbol] = useState('300750')
-  const [watchSymbols, setWatchSymbols] = useState<string[]>(() => {
-    const storedProfile = loadUserProfile()
-
-    if (!storedProfile) {
-      return []
-    }
-
-    const storedWatchlist = loadProfileWatchlist(storedProfile.id)
-    return storedWatchlist.length
-      ? storedWatchlist
-      : buildPresetWatchlist(storedProfile.focusPreset)
-  })
+  const [watchSymbols, setWatchSymbols] = useState<string[]>([
+    '300750',
+    '688041',
+    '600519',
+    '601318',
+  ])
   const [watchOnly, setWatchOnly] = useState(false)
   const [query, setQuery] = useState('')
   const [sector, setSector] = useState('全部')
@@ -266,18 +224,14 @@ function App() {
   const [viewMode, setViewMode] = useState<'dashboard' | 'watchlist'>(
     'dashboard',
   )
-  const [profileDrawerOpen, setProfileDrawerOpen] = useState(false)
   const [clock, setClock] = useState(() => new Date())
-  const [learningRecords, setLearningRecords] = useState(loadLearningRecords)
-  const [trainedCalibration, setTrainedCalibration] =
-    useState<LearningCalibration | null>(null)
 
   const { stocks, status, isLoading, refreshQuotes } =
     useAStockMarket(activeSymbol, chartPeriod)
   const deferredQuery = useDeferredValue(query)
   const activeProfile = profileConfig[riskProfile]
 
-  const analysisStocks = useMemo(() => {
+  const visibleStocks = useMemo(() => {
     const keyword = deferredQuery.trim().toLowerCase()
     const scoped = filterByWatchOnly(stocks, watchSymbols, watchOnly)
 
@@ -293,38 +247,20 @@ function App() {
 
         return sectorMatched && keywordMatched
       })
+      .slice(0, 220)
   }, [deferredQuery, sector, stocks, watchOnly, watchSymbols])
+
   const recommendationLimit =
-    analysisStocks.length >= 24
+    visibleStocks.length >= 24
       ? 8
-      : Math.max(3, Math.min(6, Math.floor(analysisStocks.length / 2) || 3))
+      : Math.max(3, Math.min(6, Math.floor(visibleStocks.length / 2) || 3))
   const picks = useMemo(
-    () =>
-      buildDailyPicks(
-        analysisStocks,
-        riskProfile,
-        recommendationLimit,
-        learningRecords,
-        trainedCalibration,
-      ),
-    [
-      learningRecords,
-      recommendationLimit,
-      riskProfile,
-      trainedCalibration,
-      analysisStocks,
-    ],
+    () => buildDailyPicks(visibleStocks, riskProfile, recommendationLimit),
+    [recommendationLimit, riskProfile, visibleStocks],
   )
   const watchlist = useMemo(
-    () =>
-      buildWatchlistInsights(
-        stocks,
-        watchSymbols,
-        riskProfile,
-        learningRecords,
-        trainedCalibration,
-      ),
-    [learningRecords, riskProfile, stocks, trainedCalibration, watchSymbols],
+    () => buildWatchlistInsights(stocks, watchSymbols, riskProfile),
+    [riskProfile, stocks, watchSymbols],
   )
   const adaptiveReview = useMemo(
     () => buildAdaptiveReview(watchlist, riskProfile),
@@ -333,32 +269,22 @@ function App() {
   const overview = useMemo(
     () =>
       buildMarketOverview(
-        analysisStocks.length ? analysisStocks : stocks,
+        visibleStocks.length ? visibleStocks : stocks,
         riskProfile,
-        learningRecords,
-        trainedCalibration,
       ),
-    [analysisStocks, learningRecords, riskProfile, stocks, trainedCalibration],
+    [riskProfile, stocks, visibleStocks],
   )
-  const fallbackSymbol = picks[0]?.symbol ?? analysisStocks[0]?.symbol ?? stocks[0]?.symbol
+  const fallbackSymbol = picks[0]?.symbol ?? visibleStocks[0]?.symbol ?? stocks[0]?.symbol
   const selectedSymbol = stocks.some((stock) => stock.symbol === activeSymbol)
     ? activeSymbol
     : fallbackSymbol
   const activeBase =
     stocks.find((stock) => stock.symbol === selectedSymbol) ??
-    analysisStocks[0] ??
+    visibleStocks[0] ??
     stocks[0]
   const activeStock = useMemo(
-    () =>
-      activeBase
-        ? scoreStock(
-            activeBase,
-            riskProfile,
-            learningRecords,
-            trainedCalibration,
-          )
-        : null,
-    [activeBase, learningRecords, riskProfile, trainedCalibration],
+    () => scoreStock(activeBase, riskProfile),
+    [activeBase, riskProfile],
   )
   const watchlistActiveStock =
     watchlist.find((stock) => stock.symbol === activeSymbol) ??
@@ -367,77 +293,19 @@ function App() {
   const alerts = useMemo(
     () =>
       watchlist
-        .filter((stock) => stock.signalScore >= 76 || stock.riskScore >= 62)
+        .filter((stock) => stock.winRate >= 76 || stock.riskScore >= 62)
         .slice(0, 5),
     [watchlist],
   )
+  const feedbackLoop = useFeedbackLoop(picks, riskProfile)
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(new Date()), 1000)
     return () => window.clearInterval(timer)
   }, [])
 
-  useEffect(() => {
-    let alive = true
-
-    void loadTrainedCalibration().then((model) => {
-      if (alive) {
-        setTrainedCalibration(model)
-      }
-    })
-
-    return () => {
-      alive = false
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!profile) {
-      return
-    }
-
-    saveUserProfile(profile)
-  }, [profile])
-
-  useEffect(() => {
-    if (!profile) {
-      return
-    }
-
-    saveProfileWatchlist(profile.id, watchSymbols)
-  }, [profile, watchSymbols])
-
-  useEffect(() => {
-    if (status.mode !== 'live' || !watchlist.length) {
-      return
-    }
-
-    const timer = window.setTimeout(() => {
-      setLearningRecords((current) => {
-        const next = refreshLearningRecords(current, watchlist)
-
-        if (JSON.stringify(next) === JSON.stringify(current)) {
-          return current
-        }
-
-        saveLearningRecords(next)
-        return next
-      })
-    }, 0)
-
-    return () => window.clearTimeout(timer)
-  }, [status.mode, watchlist])
-
-  function changeProfile(nextRisk: RiskProfile) {
-    startTransition(() => {
-      setRiskProfile(nextRisk)
-      setProfile((current) =>
-        current
-          ? { ...current, riskProfile: nextRisk, updatedAt: new Date().toISOString() }
-          : current,
-      )
-      setProfileDraft((current) => ({ ...current, riskProfile: nextRisk }))
-    })
+  function changeProfile(profile: RiskProfile) {
+    startTransition(() => setRiskProfile(profile))
   }
 
   function toggleWatch(symbol: string) {
@@ -472,100 +340,8 @@ function App() {
     })
   }
 
-  function commitProfile(draft: UserProfileDraft) {
-    const nextProfile = buildUserProfile(draft, profile)
-    const nextWatchlist = loadProfileWatchlist(nextProfile.id)
-    const resolvedWatchlist = nextWatchlist.length
-      ? nextWatchlist
-      : buildPresetWatchlist(draft.focusPreset)
-
-    saveUserProfile(nextProfile)
-    saveProfileWatchlist(nextProfile.id, resolvedWatchlist)
-
-    startTransition(() => {
-      setProfile(nextProfile)
-      setProfileDraft(makeInitialUserDraft(nextProfile))
-      setRiskProfile(draft.riskProfile)
-      setWatchSymbols(resolvedWatchlist)
-      setActiveSymbol((current) => current || resolvedWatchlist[0] || '300750')
-      setProfileDrawerOpen(false)
-    })
-  }
-
-  function logoutProfile() {
-    if (profile) {
-      clearUserProfile()
-    }
-
-    startTransition(() => {
-      setProfile(null)
-      setProfileDraft(defaultProfileDraft)
-      setRiskProfile('medium')
-      setWatchSymbols([])
-      setActiveSymbol('300750')
-      setProfileDrawerOpen(false)
-    })
-  }
-
-  if (!profile) {
-    return (
-      <ProfileGate
-        draft={profileDraft}
-        onChange={setProfileDraft}
-        onSubmit={() => commitProfile(profileDraft)}
-      />
-    )
-  }
-
-  if (!activeStock || !watchlistActiveStock) {
-    return (
-      <div className="terminal-shell">
-        <header className="command-bar">
-          <div className="brand-mark">
-            <LineChart size={22} />
-            <div>
-              <strong>Canvas Alpha</strong>
-              <span>A股实时监测终端</span>
-            </div>
-          </div>
-
-          <div className="command-search">
-            <Search size={18} />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索股票代码、名称、板块"
-            />
-          </div>
-
-          <div className="command-actions">
-            <button
-              type="button"
-              className="toolbar-button"
-              onClick={() => void refreshQuotes()}
-              title="刷新实时行情"
-            >
-              <RefreshCcw size={18} />
-              <span>刷新</span>
-            </button>
-            <div className="data-status is-unavailable">
-              <span />
-              真实源 · {formatTime(status.updatedAt)}
-            </div>
-          </div>
-        </header>
-
-        <PhysicalPanel as="section" className="data-empty-state">
-          <AlertTriangle size={24} />
-          <strong>{isLoading ? '正在连接真实行情源' : '真实行情暂不可用'}</strong>
-          <span>{status.message}</span>
-        </PhysicalPanel>
-      </div>
-    )
-  }
-
   return (
-    <div className={`terminal-shell terminal-shell--${profile.density}`}>
+    <div className="terminal-shell">
       <header className="command-bar">
         <div className="brand-mark">
           <LineChart size={22} />
@@ -585,19 +361,6 @@ function App() {
         </div>
 
         <div className="command-actions">
-          <button
-            type="button"
-            className="profile-chip"
-            onClick={() => setProfileDrawerOpen((value) => !value)}
-            title="打开个人设置"
-          >
-            <span>{getProfileBadge(profile.displayName)}</span>
-            <div>
-              <strong>{profile.displayName}</strong>
-              <small>{profile.focusPreset === 'defensive' ? '稳健底仓' : profile.focusPreset === 'balanced' ? '均衡跟随' : '热点进攻'}</small>
-            </div>
-            <Menu size={16} />
-          </button>
           <button
             type="button"
             className={`toolbar-button${viewMode === 'watchlist' ? ' is-active' : ''}`}
@@ -635,11 +398,11 @@ function App() {
           </button>
           <div
             className={`data-status ${
-              status.mode === 'live' ? 'is-live' : 'is-unavailable'
+              status.mode === 'live' ? 'is-live' : 'is-fallback'
             }`}
           >
             <span />
-            {status.mode === 'live' ? '公开源' : '未连接'} · {formatTime(status.updatedAt)}
+            {status.mode === 'live' ? '公开源' : '备用源'} · {formatTime(status.updatedAt)}
           </div>
         </div>
       </header>
@@ -662,14 +425,14 @@ function App() {
 
           <section className="adaptive-review">
             <PhysicalPanel className="adaptive-card adaptive-card--primary">
-              <span>校准胜率</span>
-              <strong>{formatProbability(adaptiveReview.avgWinRate)}</strong>
+              <span>每日预测胜率</span>
+              <strong>{adaptiveReview.avgWinRate}%</strong>
               <small>{adaptiveReview.confidence}</small>
             </PhysicalPanel>
             <PhysicalPanel className="adaptive-card">
               <span>系统学习分</span>
               <strong>{adaptiveReview.learningScore}</strong>
-              <small>根据真实信号样本逐步校正</small>
+              <small>根据胜率、风险和置信样本自动校正</small>
             </PhysicalPanel>
             <PhysicalPanel className="adaptive-card adaptive-card--wide">
               <span>今日复盘</span>
@@ -721,8 +484,8 @@ function App() {
                           </small>
                         </span>
                         <span>
-                          <strong>{stock.signalScore}</strong>
-                          <small>信号分</small>
+                          <strong>{stock.winRate}%</strong>
+                          <small>胜率</small>
                         </span>
                         <span>
                           <strong>{stock.riskScore}</strong>
@@ -799,40 +562,33 @@ function App() {
                 stock={watchlistActiveStock}
               />
 
-              {watchlistActiveStock.tradePlan ? (
-                <div className="execution-grid">
-                  <PhysicalPanel className="execution-card" intensity="soft">
-                    <Target size={18} />
-                    <span>买入区间</span>
-                    <strong>
-                      {formatPrice(watchlistActiveStock.tradePlan.entries[0])} /{' '}
-                      {formatPrice(watchlistActiveStock.tradePlan.entries[1])}
-                    </strong>
-                  </PhysicalPanel>
-                  <PhysicalPanel className="execution-card" intensity="soft">
-                    <WalletCards size={18} />
-                    <span>建议仓位</span>
-                    <strong>{watchlistActiveStock.tradePlan.positionPct}%</strong>
-                  </PhysicalPanel>
-                  <PhysicalPanel className="execution-card" intensity="soft">
-                    <ShieldCheck size={18} />
-                    <span>风控线</span>
-                    <strong>
-                      {formatPrice(watchlistActiveStock.tradePlan.stopLoss)}
-                    </strong>
-                  </PhysicalPanel>
-                  <PhysicalPanel className="execution-card" intensity="soft">
-                    <AlertTriangle size={18} />
-                    <span>最大回撤</span>
-                    <strong>{watchlistActiveStock.tradePlan.maxDrawdownPct}%</strong>
-                  </PhysicalPanel>
-                </div>
-              ) : (
-                <PhysicalPanel className="execution-placeholder" intensity="soft">
-                  <AlertTriangle size={18} />
-                  <span>等待真实K线补齐后生成操作区间。</span>
+              <div className="execution-grid">
+                <PhysicalPanel className="execution-card" intensity="soft">
+                  <Target size={18} />
+                  <span>买入区间</span>
+                  <strong>
+                    {formatPrice(watchlistActiveStock.tradePlan.entries[0])} /{' '}
+                    {formatPrice(watchlistActiveStock.tradePlan.entries[1])}
+                  </strong>
                 </PhysicalPanel>
-              )}
+                <PhysicalPanel className="execution-card" intensity="soft">
+                  <WalletCards size={18} />
+                  <span>建议仓位</span>
+                  <strong>{watchlistActiveStock.tradePlan.positionPct}%</strong>
+                </PhysicalPanel>
+                <PhysicalPanel className="execution-card" intensity="soft">
+                  <ShieldCheck size={18} />
+                  <span>风控线</span>
+                  <strong>
+                    {formatPrice(watchlistActiveStock.tradePlan.stopLoss)}
+                  </strong>
+                </PhysicalPanel>
+                <PhysicalPanel className="execution-card" intensity="soft">
+                  <AlertTriangle size={18} />
+                  <span>最大回撤</span>
+                  <strong>{watchlistActiveStock.tradePlan.maxDrawdownPct}%</strong>
+                </PhysicalPanel>
+              </div>
             </PhysicalPanel>
           </main>
         </>
@@ -849,12 +605,12 @@ function App() {
           icon={TrendingUp}
           label="上涨/下跌"
           value={`${overview.upCount}/${overview.downCount}`}
-          hint={`分析样本 ${overview.total}`}
+          hint={`可见样本 ${overview.total}`}
         />
         <MarketMetric
           icon={Gauge}
-          label="信号均分"
-          value={`${overview.avgSignalScore}`}
+          label="候选胜率"
+          value={`${overview.avgWinRate}%`}
           hint={activeProfile.description}
         />
         <MarketMetric
@@ -954,38 +710,31 @@ function App() {
             stock={activeStock}
           />
 
-          {activeStock.tradePlan ? (
-            <div className="execution-grid">
-              <PhysicalPanel className="execution-card" intensity="soft">
-                <Target size={18} />
-                <span>买入区间</span>
-                <strong>
-                  {formatPrice(activeStock.tradePlan.entries[0])} /{' '}
-                  {formatPrice(activeStock.tradePlan.entries[1])}
-                </strong>
-              </PhysicalPanel>
-              <PhysicalPanel className="execution-card" intensity="soft">
-                <WalletCards size={18} />
-                <span>建议仓位</span>
-                <strong>{activeStock.tradePlan.positionPct}%</strong>
-              </PhysicalPanel>
-              <PhysicalPanel className="execution-card" intensity="soft">
-                <ShieldCheck size={18} />
-                <span>风控线</span>
-                <strong>{formatPrice(activeStock.tradePlan.stopLoss)}</strong>
-              </PhysicalPanel>
-              <PhysicalPanel className="execution-card" intensity="soft">
-                <AlertTriangle size={18} />
-                <span>最大回撤</span>
-                <strong>{activeStock.tradePlan.maxDrawdownPct}%</strong>
-              </PhysicalPanel>
-            </div>
-          ) : (
-            <PhysicalPanel className="execution-placeholder" intensity="soft">
-              <AlertTriangle size={18} />
-              <span>等待真实K线补齐后生成操作区间。</span>
+          <div className="execution-grid">
+            <PhysicalPanel className="execution-card" intensity="soft">
+              <Target size={18} />
+              <span>买入区间</span>
+              <strong>
+                {formatPrice(activeStock.tradePlan.entries[0])} /{' '}
+                {formatPrice(activeStock.tradePlan.entries[1])}
+              </strong>
             </PhysicalPanel>
-          )}
+            <PhysicalPanel className="execution-card" intensity="soft">
+              <WalletCards size={18} />
+              <span>建议仓位</span>
+              <strong>{activeStock.tradePlan.positionPct}%</strong>
+            </PhysicalPanel>
+            <PhysicalPanel className="execution-card" intensity="soft">
+              <ShieldCheck size={18} />
+              <span>风控线</span>
+              <strong>{formatPrice(activeStock.tradePlan.stopLoss)}</strong>
+            </PhysicalPanel>
+            <PhysicalPanel className="execution-card" intensity="soft">
+              <AlertTriangle size={18} />
+              <span>最大回撤</span>
+              <strong>{activeStock.tradePlan.maxDrawdownPct}%</strong>
+            </PhysicalPanel>
+          </div>
         </PhysicalPanel>
 
         <aside className="right-rail">
@@ -995,7 +744,7 @@ function App() {
               <strong>{activeStock.action}</strong>
             </div>
             <div className="win-ring" style={{ borderColor: activeProfile.accent }}>
-              <strong>{formatProbability(activeStock.winRate)}</strong>
+              <strong>{activeStock.winRate}%</strong>
               <span>{activeStock.confidenceLabel}</span>
             </div>
             <ScoreBar
@@ -1053,9 +802,9 @@ function App() {
             </div>
             {alerts.map((stock) => (
               <div className="alert-line" key={stock.symbol}>
-              {stock.signalScore >= 76 ? (
-                <CheckCircle2 size={16} />
-              ) : (
+                {stock.winRate >= 76 ? (
+                  <CheckCircle2 size={16} />
+                ) : (
                   <AlertTriangle size={16} />
                 )}
                 <span>
@@ -1063,6 +812,58 @@ function App() {
                 </span>
               </div>
             ))}
+          </PhysicalPanel>
+
+          <PhysicalPanel as="section" className="feedback-box">
+            <div className="panel-heading">
+              <span>复盘闭环</span>
+              <strong>{feedbackLoop.totalRecords}</strong>
+            </div>
+            <div className="feedback-metrics">
+              <span>
+                今日预测
+                <strong>{feedbackLoop.todaysRecords.length}</strong>
+              </span>
+              <span>
+                待复盘
+                <strong>{feedbackLoop.openRecords.length}</strong>
+              </span>
+            </div>
+            <div className="feedback-actions">
+              <button
+                type="button"
+                onClick={feedbackLoop.captureTodayPredictions}
+              >
+                记录今日预测
+              </button>
+              <button type="button" onClick={() => feedbackLoop.runReview(picks)}>
+                收盘复盘
+              </button>
+            </div>
+            {feedbackLoop.report ? (
+              <div className="feedback-report">
+                <strong>{feedbackLoop.report.summary}</strong>
+                <span>{feedbackLoop.report.nextAction}</span>
+              </div>
+            ) : (
+              <div className="feedback-report">
+                <strong>尚未形成复盘报告</strong>
+                <span>先记录今日预测，收盘后用实时价格回填表现。</span>
+              </div>
+            )}
+            <div className="weight-grid">
+              <WeightPill label="消息" value={feedbackLoop.strategyWeights.message} />
+              <WeightPill label="技术" value={feedbackLoop.strategyWeights.technical} />
+              <WeightPill label="稳定" value={feedbackLoop.strategyWeights.stability} />
+              <WeightPill
+                label="匹配"
+                value={feedbackLoop.strategyWeights.profileFit}
+              />
+              <WeightPill
+                label="风控"
+                value={feedbackLoop.strategyWeights.riskPenalty}
+              />
+            </div>
           </PhysicalPanel>
         </aside>
       </main>
@@ -1074,27 +875,13 @@ function App() {
         </div>
         <div>
           <strong>操作策略</strong>
-          <span>
-            {activeStock.tradePlan
-              ? activeStock.tradePlan.styleNote
-              : '真实K线不足，暂不生成操作策略。'}
-          </span>
+          <span>{activeStock.tradePlan.styleNote}</span>
         </div>
         <div>
           <strong>当前逻辑</strong>
           <span>{activeStock.narrative[0]}</span>
         </div>
       </section>
-      {profileDrawerOpen ? (
-        <div className="profile-drawer-overlay">
-          <ProfileDrawer
-            draft={profileDraft}
-            onChange={setProfileDraft}
-            onSave={() => commitProfile(profileDraft)}
-            onLogout={logoutProfile}
-          />
-        </div>
-      ) : null}
         </>
       )}
     </div>
