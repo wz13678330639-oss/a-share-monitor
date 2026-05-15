@@ -864,6 +864,46 @@ function App() {
                 value={feedbackLoop.strategyWeights.riskPenalty}
               />
             </div>
+            <div className="model-card">
+              <div>
+                <span>模型训练</span>
+                <strong>
+                  {feedbackLoop.trainedModel
+                    ? feedbackLoop.trainedModel.version
+                    : '等待样本'}
+                </strong>
+              </div>
+              <div className="model-stats">
+                <span>
+                  样本
+                  <strong>{feedbackLoop.trainedModel?.sampleCount ?? 0}</strong>
+                </span>
+                <span>
+                  轮次
+                  <strong>{feedbackLoop.trainedModel?.trainingRounds ?? 0}</strong>
+                </span>
+                <span>
+                  模式
+                  <strong>
+                    {feedbackLoop.trainedModel?.mode === 'active'
+                      ? 'active'
+                      : 'warmup'}
+                  </strong>
+                </span>
+                <span>
+                  修正
+                  <strong>
+                    {feedbackLoop.trainedModel
+                      ? `${feedbackLoop.trainedModel.winRateAdjustment > 0 ? '+' : ''}${feedbackLoop.trainedModel.winRateAdjustment}%`
+                      : '0%'}
+                  </strong>
+                </span>
+              </div>
+              <p>
+                {feedbackLoop.trainedModel?.summary ??
+                  '记录预测并完成收盘复盘后，模型会用真实表现更新权重。'}
+              </p>
+            </div>
           </PhysicalPanel>
         </aside>
       </main>
