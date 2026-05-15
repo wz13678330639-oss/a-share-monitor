@@ -5,8 +5,10 @@ import {
   createPredictionBatch,
   defaultStrategyWeights,
   mergeReviewedRecords,
+  trainOnlineModel,
   tuneStrategyWeights,
   type FeedbackReport,
+  type OnlineModel,
   type PredictionRecord,
   type StrategyWeights,
 } from '../lib/feedbackLoop'
@@ -17,12 +19,14 @@ interface FeedbackLoopState {
   records: PredictionRecord[]
   weights: Record<RiskProfile, StrategyWeights>
   lastReport: FeedbackReport | null
+  models: Partial<Record<RiskProfile, OnlineModel>>
 }
 
 const defaultState: FeedbackLoopState = {
   records: [],
   weights: defaultStrategyWeights,
   lastReport: null,
+  models: {},
 }
 
 function todayKey(date = new Date()) {
@@ -50,6 +54,7 @@ function readStoredState(): FeedbackLoopState {
         ...parsed.weights,
       },
       lastReport: parsed.lastReport ?? null,
+      models: parsed.models ?? {},
     }
   } catch {
     return defaultState
@@ -117,14 +122,28 @@ export function useFeedbackLoop(picks: ScoredStock[], profile: RiskProfile) {
       profile,
     })
 
-    setState((current) => ({
-      records: mergeReviewedRecords(current.records, report.reviewedRecords),
-      weights: {
-        ...current.weights,
-        [profile]: tuneStrategyWeights(current.weights[profile], report),
-      },
-      lastReport: report,
-    }))
+    setState((current) => {
+      const nextWeights = tuneStrategyWeights(current.weights[profile], report)
+      const model = trainOnlineModel({
+        previousModel: current.models[profile] ?? null,
+        reviewedRecords: report.reviewedRecords,
+        baseWeights: nextWeights,
+        profile,
+      })
+
+      return {
+        records: mergeReviewedRecords(current.records, report.reviewedRecords),
+        weights: {
+          ...current.weights,
+          [profile]: nextWeights,
+        },
+        lastReport: report,
+        models: {
+          ...current.models,
+          [profile]: model,
+        },
+      }
+    })
   }
 
   function resetLoop() {
@@ -137,6 +156,7 @@ export function useFeedbackLoop(picks: ScoredStock[], profile: RiskProfile) {
     report: state.lastReport,
     resetLoop,
     runReview,
+    trainedModel: state.models[profile] ?? null,
     strategyWeights: state.weights[profile],
     todaysRecords,
     totalRecords: state.records.length,
