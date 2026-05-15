@@ -4,6 +4,7 @@ import { scoreStock } from './analysisEngine'
 import {
   buildFeedbackReport,
   createPredictionBatch,
+  trainOnlineModel,
   tuneStrategyWeights,
 } from './feedbackLoop'
 
@@ -79,5 +80,49 @@ describe('feedbackLoop', () => {
     expect(next.technical).toBeGreaterThan(34)
     expect(next.riskPenalty).toBeLessThanOrEqual(22)
     expect(Object.values(next).every((value) => value >= 5 && value <= 60)).toBe(true)
+  })
+
+  it('trains a lightweight model from reviewed samples and produces a win-rate adjustment', () => {
+    const picks = stockUniverse
+      .slice(0, 5)
+      .map((stock) => scoreStock(stock, 'medium'))
+    const batch = createPredictionBatch({
+      picks,
+      profile: 'medium',
+      tradeDate: '2026-05-15',
+      createdAt: '2026-05-15T08:30:00.000Z',
+    })
+    const currentPrices = new Map(
+      picks.map((pick, index) => [
+        pick.symbol,
+        pick.price * (index % 2 === 0 ? 1.035 : 0.975),
+      ]),
+    )
+    const report = buildFeedbackReport({
+      records: batch.records,
+      currentPrices,
+      reviewDate: '2026-05-16',
+      profile: 'medium',
+    })
+
+    const model = trainOnlineModel({
+      previousModel: null,
+      reviewedRecords: report.reviewedRecords,
+      baseWeights: {
+        message: 25,
+        technical: 34,
+        stability: 22,
+        profileFit: 19,
+        riskPenalty: 18,
+      },
+      profile: 'medium',
+    })
+
+    expect(model.sampleCount).toBe(5)
+    expect(model.trainingRounds).toBe(1)
+    expect(model.mode).toBe('warmup')
+    expect(model.winRateAdjustment).not.toBe(0)
+    expect(model.summary).toContain('训练')
+    expect(Object.values(model.featureWeights).every((value) => value >= 0 && value <= 1)).toBe(true)
   })
 })
